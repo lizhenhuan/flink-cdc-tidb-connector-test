@@ -11,22 +11,25 @@ import org.tikv.common.TiConfiguration;
 import org.tikv.common.TiSession;
 import org.tikv.common.codec.TableCodec;
 import org.tikv.common.key.RowKey;
+import org.tikv.common.meta.TiColumnInfo;
 import org.tikv.common.meta.TiTableInfo;
 import org.tikv.kvproto.Cdcpb;
 import org.tikv.kvproto.Kvrpcpb;
 import org.tikv.shade.com.google.gson.Gson;
 
 import java.util.HashMap;
+import java.util.stream.Collectors;
 
 public class TiDBSourceExample {
 
     public static void main(String[] args) throws Exception {
         String databaseName = "test";
-        String tableName = "test";
+        String tableName = "test1";
         TiConfiguration tiConf = TDBSourceOptions.getTiConfiguration(
-                "172.0.0.1:2379,172.0.0.2:2379,172.0.0.3:2379", new HashMap<>());
+                "10.2.103.64:2389,10.2.103.28:2389", new HashMap<>());
         TiSession session = TiSession.create(tiConf);
         TiTableInfo tableInfo = session.getCatalog().getTable(databaseName, tableName);
+        tableInfo.getColumns().stream().filter((TiColumnInfo columnInfo) -> columnInfo.isPrimaryKey()).forEach((TiColumnInfo columnInfo) -> System.out.println(columnInfo.getName()));
         SourceFunction<String> tidbSource =
                 TiDBSource.<String>builder()
                         .database(databaseName) // set captured database
@@ -41,7 +44,10 @@ public class TiDBSourceExample {
                                             throws Exception {
                                         Object[] tikvValues = TableCodec.decodeObjects(record.getValue().toByteArray(), RowKey.decode(record.getKey().toByteArray()).getHandle(), tableInfo);
                                         Gson gson = new Gson();
-                                        out.collect("###" + gson.toJson(tikvValues));
+
+                                        out.collect("###" + RowKey.decode(record.getKey().toByteArray()) + gson.toJson(tikvValues));
+                                        out.collect("###" + record.toString());
+
                                     }
 
                                     @Override
@@ -58,7 +64,8 @@ public class TiDBSourceExample {
                                             throws Exception {
                                         Object[] tikvValues = TableCodec.decodeObjects(record.getValue().toByteArray(), RowKey.decode(record.getKey().toByteArray()).getHandle(), tableInfo);
                                         Gson gson = new Gson();
-                                        out.collect("@@@@" + gson.toJson(tikvValues));
+                                        //out.collect("@@@@" + RowKey.decode(record.getKey().toByteArray()) + gson.toJson(tikvValues));
+                                        out.collect("@@@" + record.toString());
                                     }
 
                                     @Override
